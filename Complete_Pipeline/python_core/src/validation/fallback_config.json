@@ -1,0 +1,11 @@
+{
+  "_comment": "Fallback hierarchy: the first level that passes validation is spoken. Levels listed in trusted_levels are accepted without validation (the original transcript must always be there as the last resort).",
+  "hierarchy": ["repaired", "safer", "original"],
+  "trusted_levels": ["original"],
+  "safer": {
+    "fillers": ["um", "uh", "er", "erm", "hmm"],
+    "stutter_words": ["i", "we", "you", "he", "she", "they", "it", "the", "a", "an", "to", "my", "is", "are", "was"],
+    "filler_pattern": "(?<!\\w)(?:<WORDS>)(?!\\w)[,\u2026]*\\s*",
+    "repeat_pattern": "\\b(<WORDS>)(?:[\\s,\u2026-]+\\1\\b)+"
+  }
+}

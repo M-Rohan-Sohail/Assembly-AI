@@ -1,0 +1,299 @@
+{
+  "_comment": "ClearVoice validator settings, grouped by topic. Edit here - no code change needed. In patterns, <MONTHS> <WORDS> <SUFFIXES> <WORD> <ENTITY> are filled in by the code from the lists in the same section. Keys starting with _ are ignored.",
+  "checks": [
+    "dates",
+    "numbers",
+    "entities",
+    "pronouns",
+    "negation",
+    "semantic_risk"
+  ],
+  "text": {
+    "word_pattern": "[^\\W\\d_]+(?:['’][^\\W\\d_]+)*",
+    "stem_suffixes": [
+      "ing",
+      "ed",
+      "es",
+      "s",
+      "ly"
+    ],
+    "stem_min_length": 5
+  },
+  "numbers": {
+    "units": {
+      "zero": 0,
+      "one": 1,
+      "two": 2,
+      "three": 3,
+      "four": 4,
+      "five": 5,
+      "six": 6,
+      "seven": 7,
+      "eight": 8,
+      "nine": 9,
+      "ten": 10,
+      "eleven": 11,
+      "twelve": 12,
+      "thirteen": 13,
+      "fourteen": 14,
+      "fifteen": 15,
+      "sixteen": 16,
+      "seventeen": 17,
+      "eighteen": 18,
+      "nineteen": 19
+    },
+    "tens": {
+      "twenty": 20,
+      "thirty": 30,
+      "forty": 40,
+      "fifty": 50,
+      "sixty": 60,
+      "seventy": 70,
+      "eighty": 80,
+      "ninety": 90
+    },
+    "scales": {
+      "thousand": 1000,
+      "million": 1000000,
+      "billion": 1000000000
+    },
+    "hundred_word": "hundred",
+    "hundred_value": 100,
+    "connectors": [
+      "and"
+    ],
+    "pattern": "\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?",
+    "thousands_separator": ",",
+    "word_separators": [
+      "-"
+    ]
+  },
+  "dates": {
+    "months": [
+      "january",
+      "february",
+      "march",
+      "april",
+      "may",
+      "june",
+      "july",
+      "august",
+      "september",
+      "october",
+      "november",
+      "december"
+    ],
+    "month_abbreviations": [
+      "jan",
+      "feb",
+      "apr",
+      "jun",
+      "jul",
+      "aug",
+      "sept",
+      "sep",
+      "oct",
+      "nov",
+      "dec"
+    ],
+    "ambiguous_months": [
+      "may"
+    ],
+    "weekdays": [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday"
+    ],
+    "relative_days": [
+      "today",
+      "tomorrow",
+      "yesterday",
+      "tonight"
+    ],
+    "ordinal_suffixes": [
+      "st",
+      "nd",
+      "rd",
+      "th"
+    ],
+    "month_key_length": 3,
+    "month_day_pattern": "\\b(<MONTHS>)\\.?\\s+(\\d{1,2})(?:<SUFFIXES>)?\\b",
+    "day_month_pattern": "\\b(\\d{1,2})(?:<SUFFIXES>)?\\s+(?:of\\s+)?(<MONTHS>)\\b",
+    "numeric_date_pattern": "\\b\\d{1,2}/\\d{1,2}(?:/\\d{2,4})?\\b",
+    "standalone_date_pattern": "\\b(<WORDS>)\\b"
+  },
+  "entities": {
+    "sentence_split_pattern": "(?<=[.!?…])\\s+",
+    "strip_pattern": "^[^A-Za-z]+|[^A-Za-z'’-]+$",
+    "token_pattern": "^[A-Z][A-Za-z'’-]*$",
+    "first_person_pattern": "^I(?:['’].*)?$",
+    "known_entity_pattern": "\\b<ENTITY>\\b",
+    "pronouns": [
+      "he",
+      "she",
+      "him",
+      "her",
+      "his",
+      "hers",
+      "they",
+      "them",
+      "their",
+      "theirs",
+      "we",
+      "us",
+      "our",
+      "you",
+      "your",
+      "it",
+      "its"
+    ]
+  },
+  "negation": {
+    "words": [
+      "not",
+      "never",
+      "cannot",
+      "none",
+      "nothing",
+      "nobody",
+      "neither",
+      "nor",
+      "without",
+      "nowhere"
+    ],
+    "contraction_suffixes": [
+      "n't",
+      "n’t"
+    ],
+    "strong_pattern": "\\b(?:<WORDS>)\\b",
+    "contraction_pattern": "\\b\\w+(?:<SUFFIXES>)\\b",
+    "weak_word": "no",
+    "weak_pattern": "\\b<WORD>\\s+([\\w']+)",
+    "weak_exclusions": [
+      "i",
+      "i'm",
+      "i'll",
+      "i've",
+      "we",
+      "you",
+      "he",
+      "she",
+      "it",
+      "they",
+      "that",
+      "this",
+      "the",
+      "a",
+      "an",
+      "my",
+      "his",
+      "her",
+      "our",
+      "their",
+      "your",
+      "actually",
+      "wait",
+      "sorry",
+      "no",
+      "yes",
+      "not",
+      "let",
+      "make",
+      "and",
+      "but",
+      "so"
+    ]
+  },
+  "correction": {
+    "cues": [
+      "no",
+      "actually",
+      "i mean",
+      "sorry",
+      "wait",
+      "rather",
+      "correction",
+      "scratch that",
+      "make that"
+    ],
+    "pattern": "\\b(?:<WORDS>)\\b"
+  },
+  "guard": {
+    "invalid_output_patterns": [
+      "```",
+      "^\\s*[\\[{]",
+      "\\brepaired_?text\\b",
+      "^(?:sure|here['’]?s|certainly)\\b"
+    ]
+  },
+  "semantic": {
+    "function_words": [
+      "a",
+      "an",
+      "the",
+      "to",
+      "of",
+      "and",
+      "or",
+      "but",
+      "so",
+      "i",
+      "i'm",
+      "i'll",
+      "i've",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "am",
+      "been",
+      "do",
+      "does",
+      "did",
+      "have",
+      "has",
+      "had",
+      "will",
+      "would",
+      "can",
+      "could",
+      "just",
+      "that",
+      "this",
+      "in",
+      "on",
+      "at",
+      "for",
+      "with",
+      "my",
+      "me",
+      "as",
+      "if",
+      "than",
+      "then"
+    ],
+    "max_novel_words": 4,
+    "novel_word_ratio": 0.25,
+    "min_novel_words_for_ratio": 2,
+    "shrink_min_tokens": 6,
+    "shrink_ratio": 0.35,
+    "growth_factor": 1.3,
+    "growth_extra_tokens": 2
+  },
+  "messages": {
+    "changed": "{before} -> {after}",
+    "non_string": "non-string input",
+    "empty_output": "empty output",
+    "empty_original": "empty original",
+    "llm_chatter": "LLM chatter / JSON leaked into text",
+    "new_pronouns": "new pronoun(s): {items}",
+    "new_words": "new words: {items}",
+    "too_short": "output far shorter than input",
+    "too_long": "output longer than input"
+  }
+}

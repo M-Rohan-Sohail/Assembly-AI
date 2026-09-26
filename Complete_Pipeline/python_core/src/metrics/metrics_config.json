@@ -1,0 +1,17 @@
+{
+  "_comment": "Which timestamps exist, how they turn into stage durations, and what counts as the total (TTFCA). Stages with a missing timestamp show missing_text.",
+  "marks": ["audio_received", "stt_final", "endpoint", "llm_start", "llm_end", "validation", "tts_first_chunk", "playback"],
+  "stages": [
+    { "label": "STT",         "start": "audio_received", "end": "stt_final" },
+    { "label": "Endpointing", "start": "stt_final",      "end": "endpoint" },
+    { "label": "Handoff",     "start": "endpoint",       "end": "llm_start" },
+    { "label": "LLM",         "start": "llm_start",      "end": "llm_end" },
+    { "label": "Validation",  "start": "llm_end",        "end": "validation" },
+    { "label": "TTS",         "start": "validation",     "end": "tts_first_chunk" },
+    { "label": "Playback",    "start": "tts_first_chunk","end": "playback" }
+  ],
+  "total": { "label": "TTFCA", "start": "audio_received", "end": ["playback", "tts_first_chunk"] },
+  "decimals": 1,
+  "missing_text": "n/a",
+  "max_tracked_utterances": 500
+}

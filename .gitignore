@@ -1,0 +1,26 @@
+# Ignore everything by default
+*
+
+# Allow the src directory
+!src/
+!src/**
+!Complete_Pipeline/
+!Complete_Pipeline/**
+!.gitignore
+
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+
+# Ignore input/output directories anywhere inside src
+src/**/input/
+src/**/output/
+
+# Ignore environment files
+.env
+.env.*
+
+# Ignore PDFs
+*.pdf
+node_modules/
+Complete_Pipeline/ts_intelligence/node_modules/

@@ -1,0 +1,18 @@
+{
+  "provider": "http",
+  "providers": {
+    "http": {
+      "url": "http://127.0.0.1:8787/repair",
+      "method": "POST",
+      "headers": { "Content-Type": "application/json" },
+      "wire_case": "camel",
+      "timeout_s": 5.0,
+      "required_fields": ["session_id", "utterance_id", "repaired_text"]
+    },
+    "mock": {
+      "result_type": "repair.completed",
+      "version": 1,
+      "confidence": 0.9
+    }
+  }
+}
