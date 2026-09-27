@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --surface-hover: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --foreground: #0f172a;
+  --muted-foreground: #475569;
+  --subtle-foreground: #94a3b8;
+
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-foreground: #ffffff;
+  --accent-bg: rgba(59, 130, 246, 0.1);
+
+  --profit: #10b981;
+  --profit-bg: rgba(16, 185, 129, 0.1);
+  --loss: #ef4444;
+  --loss-bg: rgba(239, 68, 68, 0.1);
+  --warning: #d97706;
+  --warning-bg: rgba(217, 119, 6, 0.12);
+  --info: #3b82f6;
+  --info-bg: rgba(59, 130, 246, 0.1);
+  --neutral: #94a3b8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0b0e14;
+    --surface: #131722;
+    --surface-hover: #1b2030;
+    --border: #232838;
+    --border-strong: #333a4f;
+    --foreground: #f1f5f9;
+    --muted-foreground: #94a3b8;
+    --subtle-foreground: #64748b;
+
+    --accent: #60a5fa;
+    --accent-hover: #3b82f6;
+    --accent-foreground: #0b0e14;
+    --accent-bg: rgba(96, 165, 250, 0.14);
+
+    --profit-bg: rgba(16, 185, 129, 0.14);
+    --loss-bg: rgba(239, 68, 68, 0.14);
+    --warning-bg: rgba(217, 119, 6, 0.16);
+    --info-bg: rgba(96, 165, 250, 0.14);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-bg: var(--accent-bg);
+
+  --color-profit: var(--profit);
+  --color-profit-bg: var(--profit-bg);
+  --color-loss: var(--loss);
+  --color-loss-bg: var(--loss-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-neutral: var(--neutral);
+
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}

@@ -6,6 +6,8 @@
 !src/**
 !Complete_Pipeline/
 !Complete_Pipeline/**
+!Frontend/
+!Frontend/**
 !.gitignore
 
 # Ignore Python cache
