@@ -1,0 +1,6 @@
+python_core/.venv
+ts_intelligence/node_modules
+__pycache__
+*.pyc
+.env
+.env.*
