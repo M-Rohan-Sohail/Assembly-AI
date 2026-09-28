@@ -1,0 +1,323 @@
+{
+  "_comment": "Test data for the Person 3 pipeline tests. Add cases here - no test code change needed.",
+  "fallback_cases": [
+    {
+      "name": "CP-10: 500 -> 5,000 is never spoken",
+      "original": "I need 500 dollars.",
+      "repaired": "I need 5,000 dollars.",
+      "known": [],
+      "source": "original",
+      "text": "I need 500 dollars."
+    },
+    {
+      "name": "good repair wins",
+      "original": "I I I want to go home.",
+      "repaired": "I want to go home.",
+      "known": [],
+      "source": "repaired",
+      "text": "I want to go home."
+    },
+    {
+      "name": "bad repair -> safer cleanup",
+      "original": "I I I want um to go home.",
+      "repaired": "I want to go home on Friday.",
+      "known": [],
+      "source": "safer",
+      "text": "I want to go home."
+    },
+    {
+      "name": "repair missing (P2 failed) -> safer",
+      "original": "I I I want um to go home.",
+      "repaired": null,
+      "known": [],
+      "source": "safer",
+      "text": "I want to go home."
+    },
+    {
+      "name": "repair empty -> safer",
+      "original": "I I I want um to go home.",
+      "repaired": "",
+      "known": [],
+      "source": "safer",
+      "text": "I want to go home."
+    },
+    {
+      "name": "pronoun swap -> original",
+      "original": "I want to meet him there.",
+      "repaired": "I want to meet her there.",
+      "known": [],
+      "source": "original",
+      "text": "I want to meet him there."
+    },
+    {
+      "name": "negation removed -> original",
+      "original": "I don't want it.",
+      "repaired": "I want it.",
+      "known": [],
+      "source": "original",
+      "text": "I don't want it."
+    },
+    {
+      "name": "nothing to clean, no repair -> original",
+      "original": "Hello there.",
+      "repaired": null,
+      "known": [],
+      "source": "original",
+      "text": "Hello there."
+    },
+    {
+      "name": "known entity protected",
+      "original": "I take Metformin daily.",
+      "repaired": "I take medicine daily.",
+      "known": [
+        "Metformin"
+      ],
+      "source": "original",
+      "text": "I take Metformin daily."
+    }
+  ],
+  "rewriter_cases": [
+    {
+      "text": "I I I want um to go",
+      "expected": "I want to go"
+    },
+    {
+      "text": "No, no, I really mean it.",
+      "expected": "No, no, I really mean it."
+    },
+    {
+      "text": "I really, really like this.",
+      "expected": "I really, really like this."
+    },
+    {
+      "text": "Please leave it. It is fine.",
+      "expected": "Please leave it. It is fine."
+    },
+    {
+      "text": "I want to… um book a taxi.",
+      "expected": "I want to… book a taxi."
+    }
+  ],
+  "bad_fallback_configs": [
+    {
+      "name": "unknown level",
+      "hierarchy": [
+        "repaired",
+        "bogus",
+        "original"
+      ],
+      "trusted_levels": [
+        "original"
+      ]
+    },
+    {
+      "name": "no trusted level",
+      "hierarchy": [
+        "repaired",
+        "safer"
+      ],
+      "trusted_levels": [
+        "original"
+      ]
+    }
+  ],
+  "tts": {
+    "text": "Hello, how are you?",
+    "retry_fail_times_ok": 2,
+    "retry_fail_times_too_many": 3,
+    "http_provider": {
+      "url": "http://127.0.0.1:{port}/tts/{voice}",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Api-Key": "${TEST_TTS_KEY}"
+      },
+      "query": {
+        "fmt": "pcm"
+      },
+      "body": {
+        "text": "<TEXT>",
+        "opts": {
+          "lang": "en"
+        }
+      },
+      "variables": {
+        "port": "__PORT__",
+        "voice": "v1"
+      },
+      "text_placeholder": "<TEXT>",
+      "timeout_s": 5.0,
+      "read_block_bytes": 1024
+    },
+    "env_var": "TEST_TTS_KEY",
+    "env_value": "secret-123",
+    "server_audio_bytes": 5000,
+    "failing_path": "/fail"
+  },
+  "metrics": {
+    "marks": {
+      "audio_received": 0,
+      "stt_final": 100,
+      "endpoint": 150,
+      "llm_start": 160,
+      "llm_end": 460,
+      "validation": 470,
+      "tts_first_chunk": 600,
+      "playback": 650
+    },
+    "expected_stages": {
+      "STT": 100,
+      "Endpointing": 50,
+      "Handoff": 10,
+      "LLM": 300,
+      "Validation": 10,
+      "TTS": 130,
+      "Playback": 50
+    },
+    "expected_total": 650,
+    "expected_total_without_playback": 600,
+    "bound": 3,
+    "utterances_to_add": 5
+  },
+  "orchestrator_cases": [
+    {
+      "name": "good repair is spoken",
+      "text": "I I I want to go home.",
+      "repair": "I want to go home.",
+      "spoken": "I want to go home.",
+      "source": "repaired"
+    },
+    {
+      "name": "bad number never spoken",
+      "text": "I need 500 dollars.",
+      "repair": "I need 5,000 dollars.",
+      "spoken": "I need 500 dollars.",
+      "source": "original"
+    },
+    {
+      "name": "bad pronoun never spoken",
+      "text": "I want to meet him there.",
+      "repair": "I want to meet her there.",
+      "spoken": "I want to meet him there.",
+      "source": "original"
+    },
+    {
+      "name": "restart accepted",
+      "text": "I want Friday—actually Thursday.",
+      "repair": "I want Thursday.",
+      "spoken": "I want Thursday.",
+      "source": "repaired"
+    }
+  ],
+  "ignored_events": [
+    {
+      "name": "partial transcript",
+      "type": "transcript.partial",
+      "text": "I want to"
+    },
+    {
+      "name": "empty text",
+      "type": "transcript.final",
+      "text": "   "
+    }
+  ],
+  "entity_case": {
+    "text": "I take Metformin daily.",
+    "repair": "I take medicine daily.",
+    "known": [
+      "Metformin"
+    ],
+    "spoken": "I take Metformin daily."
+  },
+  "timeout_s": 0.05,
+  "slow_repair_delay_s": 0.5,
+  "ordering": {
+    "texts": [
+      "I want one.",
+      "I want two.",
+      "I want three."
+    ]
+  },
+  "http_repair": {
+    "config": {
+      "url": "http://127.0.0.1:{port}/repair",
+      "method": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "wire_case": "camel",
+      "timeout_s": 5.0,
+      "required_fields": [
+        "session_id",
+        "utterance_id",
+        "original_text",
+        "repaired_text"
+      ]
+    },
+    "server_response": {
+      "type": "repair.completed",
+      "version": 1,
+      "sessionId": "s1",
+      "utteranceId": "u1",
+      "originalText": "I I want it.",
+      "repairedText": "I want it.",
+      "confidence": 0.9,
+      "changes": []
+    },
+    "incomplete_response": {
+      "sessionId": "s1"
+    }
+  },
+  "common": {
+    "snake": {
+      "session_id": "a",
+      "start_ms": 1,
+      "changes": [
+        {
+          "change_type": "x"
+        }
+      ]
+    },
+    "camel": {
+      "sessionId": "a",
+      "startMs": 1,
+      "changes": [
+        {
+          "changeType": "x"
+        }
+      ]
+    },
+    "env_missing": "${SURELY_NOT_SET_12345}",
+    "dotenv_text": "# comment\nCV_TEST_A=hello\nCV_TEST_B='quoted'\n\nbad line\n",
+    "dotenv_expected": {
+      "CV_TEST_A": "hello",
+      "CV_TEST_B": "quoted"
+    }
+  },
+  "event_template": {
+    "type": "transcript.final",
+    "version": 1,
+    "session_id": "s1",
+    "utterance_id": "u1",
+    "text": "",
+    "is_final": true,
+    "confidence": 0.9,
+    "start_ms": 0,
+    "end_ms": 1000
+  },
+  "runtime": {
+    "text": "I I want um to book a taxi.",
+    "expected_spoken": "I want to book a taxi.",
+    "expected_source": "repaired",
+    "utterances": [
+      "u1",
+      "u2"
+    ],
+    "failing_utterance": "u1",
+    "wait_timeout_s": 3.0
+  },
+  "sinks": {
+    "unknown": "does_not_exist",
+    "fake_bytes": 3200
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "_comment": "Pipeline behaviour. marks.* are names from metrics_config.json.",
+  "process_event_types": ["transcript.final"],
+  "repair_timeout_s": 8.0,
+  "repair_workers": 2,
+  "marks": {
+    "on_receive": ["stt_final", "endpoint"],
+    "llm_start": "llm_start",
+    "llm_end": "llm_end",
+    "validation": "validation",
+    "tts_first_chunk": "tts_first_chunk"
+  }
+}

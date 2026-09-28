@@ -6,8 +6,8 @@
 !src/**
 !Complete_Pipeline/
 !Complete_Pipeline/**
-!Assembly-AI-Frontend/
-!Assembly-AI-Frontend/**
+!Frontend/
+!Frontend/**
 !.gitignore
 
 # Ignore Python cache
@@ -26,8 +26,3 @@ src/**/output/
 *.pdf
 node_modules/
 Complete_Pipeline/ts_intelligence/node_modules/
-.venv/
-Assembly-AI-Frontend/Frontend/node_modules/
-Assembly-AI-Frontend/Frontend/.next/
-Assembly-AI-Frontend/Complete_Pipeline/ts_intelligence/node_modules/
-Assembly-AI-Frontend/Complete_Pipeline/python_core/.venv/

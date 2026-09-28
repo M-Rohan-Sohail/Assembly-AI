@@ -1,0 +1,25 @@
+{
+  "_comment": "EXAMPLES ONLY - copy the block you need into the 'http' entry of tts_config.json, set provider to 'http', and put the API key in .env. Check the provider's current docs: endpoints, field names and output formats change.",
+  "elevenlabs_style": {
+    "url": "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream",
+    "method": "POST",
+    "headers": { "Content-Type": "application/json", "xi-api-key": "${ELEVENLABS_API_KEY}" },
+    "query": { "output_format": "pcm_16000" },
+    "body": { "text": "<TEXT>", "model_id": "eleven_flash_v2_5" },
+    "variables": { "voice_id": "${ELEVENLABS_VOICE_ID}" },
+    "text_placeholder": "<TEXT>",
+    "timeout_s": 10.0,
+    "read_block_bytes": 4096
+  },
+  "openai_style": {
+    "url": "https://api.openai.com/v1/audio/speech",
+    "method": "POST",
+    "headers": { "Content-Type": "application/json", "Authorization": "Bearer ${OPENAI_API_KEY}" },
+    "query": {},
+    "body": { "model": "gpt-4o-mini-tts", "input": "<TEXT>", "voice": "alloy", "response_format": "pcm" },
+    "variables": {},
+    "text_placeholder": "<TEXT>",
+    "timeout_s": 10.0,
+    "read_block_bytes": 4096
+  }
+}
