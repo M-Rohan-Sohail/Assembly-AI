@@ -2,7 +2,10 @@ import assemblyai as aai
 from assemblyai.streaming.v3 import RealTimeTranscriber
 from assemblyai.streaming.v3 import BeginEvent, TurnEvent, TerminationEvent, RealTimeError
 from typing import Callable, Optional, Any
-from contracts import TranscriptEvent
+try:
+    from src.contracts import TranscriptEvent
+except ImportError:
+    from contracts import TranscriptEvent
 from assemblyai.streaming.v3.models import RealTimeEvents
 
 class AssemblyAIService:
@@ -75,6 +78,8 @@ class AssemblyAIService:
 
     def start_session(self, session_id: str, sample_rate: int = 16000):
         """Connects to the AssemblyAI Real-Time streaming API."""
+        if self.transcriber:
+            self.end_session()
         self.current_session_id = session_id
         self.last_transcript = ""
         self.last_confidence = None

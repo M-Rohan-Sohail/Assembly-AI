@@ -34,7 +34,7 @@ function reducer(state: SessionState, action: Action): SessionState {
     case "connection":
       return { ...state, connection: action.status };
     case "session-start":
-      return { ...initialSessionState, connection: state.connection, sessionId: action.sessionId, stage: "listening" };
+      return { ...state, sessionId: action.sessionId, stage: "listening", error: null };
     case "session-stop":
       return { ...state, stage: "idle", sessionId: null };
     case "mute":
@@ -50,6 +50,15 @@ function reducer(state: SessionState, action: Action): SessionState {
       switch (event.type) {
         case "transcript.partial":
         case "transcript.final": {
+          let history = state.history;
+          if (state.current && state.current.utteranceId !== event.utterance_id) {
+            if (state.current.repairedText || state.current.rawText) {
+              const alreadyInHistory = history.some((h) => h.utteranceId === state.current!.utteranceId);
+              if (!alreadyInHistory) {
+                history = [state.current, ...history].slice(0, MAX_HISTORY);
+              }
+            }
+          }
           const current = upsertCurrent(state, event.utterance_id);
           const updated: UtteranceRecord = {
             ...current,
@@ -57,7 +66,7 @@ function reducer(state: SessionState, action: Action): SessionState {
             isFinal: event.is_final,
             updatedAt: Date.now(),
           };
-          return { ...state, current: updated };
+          return { ...state, current: updated, history };
         }
         case "repair.completed": {
           if (!state.current || state.current.utteranceId !== event.utterance_id) return state;
@@ -76,7 +85,8 @@ function reducer(state: SessionState, action: Action): SessionState {
             source: event.source,
             updatedAt: Date.now(),
           };
-          const history = [finalized, ...state.history].slice(0, MAX_HISTORY);
+          const filteredHistory = state.history.filter((h) => h.utteranceId !== event.utterance_id);
+          const history = [finalized, ...filteredHistory].slice(0, MAX_HISTORY);
           return { ...state, current: finalized, history };
         }
         case "stage.update":
@@ -106,6 +116,16 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
   const demoCancelRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
   const isMutedRef = useRef(false);
+
+  const onAudioOutputChunkRef = useRef(onAudioOutputChunk);
+  useEffect(() => {
+    onAudioOutputChunkRef.current = onAudioOutputChunk;
+  });
+
+  const onDemoSpeakRef = useRef(onDemoSpeak);
+  useEffect(() => {
+    onDemoSpeakRef.current = onDemoSpeak;
+  });
 
   const sendAudioChunk = useCallback((chunk: AudioChunkPayload) => {
     const ws = wsRef.current;
@@ -203,65 +223,94 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
       });
 
       dispatch({ kind: "stage", stage: "speaking" });
-      if (onDemoSpeak) await onDemoSpeak(spokenText);
+      if (onDemoSpeakRef.current) await onDemoSpeakRef.current(spokenText);
       if (demoCancelRef.current) return;
       dispatch({ kind: "stage", stage: "listening" });
       await sleep(900);
     }
-  }, [onDemoSpeak]);
+  }, []);
 
-  // Connect WebSocket on page load
-  const connectWs = useCallback(() => {
-    if (!wsUrl || useDemoMode || wsRef.current) return;
-
-    dispatch({ kind: "connection", status: "connecting" });
-    try {
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        dispatch({ kind: "connection", status: "online" });
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const parsed: ServerEvent = JSON.parse(event.data);
-          if (
-            (parsed.type === "audio.chunk" || parsed.type === "audio.final") &&
-            onAudioOutputChunk
-          ) {
-            onAudioOutputChunk(parsed.audio_chunk_b64, parsed.is_final);
-          }
-          dispatch({ kind: "server-event", event: parsed });
-        } catch {
-          // ignore malformed frames
-        }
-      };
-
-      ws.onerror = () => {
-        dispatch({ kind: "error", message: "WebSocket connection error." });
-      };
-
-      ws.onclose = () => {
-        dispatch({ kind: "connection", status: "offline" });
-        wsRef.current = null;
-        // Auto-reconnect after 3 seconds if disconnected
-        setTimeout(() => connectWs(), 3000);
-      };
-    } catch (err) {
-      dispatch({ kind: "error", message: err instanceof Error ? err.message : "Failed to connect." });
-      dispatch({ kind: "connection", status: "offline" });
-    }
-  }, [onAudioOutputChunk, useDemoMode, wsUrl]);
-
-  // Run on mount
+  // Persistent WebSocket connection on page load
   useEffect(() => {
-    connectWs();
-    return () => {
-      wsRef.current?.close();
-      wsRef.current = null;
+    if (useDemoMode || !wsUrl) {
+      dispatch({ kind: "connection", status: "demo" });
+      return;
+    }
+
+    let isUnmounted = false;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = () => {
+      if (isUnmounted) return;
+      if (
+        wsRef.current &&
+        (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)
+      ) {
+        return;
+      }
+
+      dispatch({ kind: "connection", status: "connecting" });
+      try {
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (isUnmounted) {
+            ws.close();
+            return;
+          }
+          dispatch({ kind: "connection", status: "online" });
+          dispatch({ kind: "error", message: null });
+        };
+
+        ws.onmessage = (event) => {
+          if (isUnmounted) return;
+          try {
+            const parsed: ServerEvent = JSON.parse(event.data);
+            if (
+              (parsed.type === "audio.chunk" || parsed.type === "audio.final") &&
+              onAudioOutputChunkRef.current
+            ) {
+              onAudioOutputChunkRef.current(parsed.audio_chunk_b64, parsed.is_final);
+            }
+            dispatch({ kind: "server-event", event: parsed });
+          } catch {
+            // ignore malformed frames
+          }
+        };
+
+        ws.onerror = () => {
+          if (isUnmounted) return;
+          // onclose will fire and trigger reconnection
+        };
+
+        ws.onclose = () => {
+          wsRef.current = null;
+          if (isUnmounted) return;
+          dispatch({ kind: "connection", status: "offline" });
+          reconnectTimeout = setTimeout(connect, 3000);
+        };
+      } catch (err) {
+        wsRef.current = null;
+        if (!isUnmounted) {
+          dispatch({ kind: "error", message: err instanceof Error ? err.message : "Failed to connect." });
+          dispatch({ kind: "connection", status: "offline" });
+          reconnectTimeout = setTimeout(connect, 3000);
+        }
+      }
     };
-  }, [connectWs]);
+
+    connect();
+
+    return () => {
+      isUnmounted = true;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [useDemoMode, wsUrl]);
 
   const startSession = useCallback(() => {
     const sessionId = makeSessionId();
@@ -284,10 +333,8 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
         channels: 1,
       };
       ws.send(JSON.stringify(message));
-    } else {
-      connectWs();
     }
-  }, [connectWs, runDemoLoop, useDemoMode, wsUrl]);
+  }, [runDemoLoop, useDemoMode, wsUrl]);
 
   const stopSession = useCallback(() => {
     demoCancelRef.current = true;

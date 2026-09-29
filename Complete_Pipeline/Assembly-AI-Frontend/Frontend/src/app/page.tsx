@@ -41,11 +41,21 @@ export default function Home() {
 
   const playback = useSpeechPlayback();
 
+  const handleAudioOutputChunk = useCallback(
+    (b64: string, isFinal: boolean) => playback.playPcmChunk(b64, isFinal),
+    [playback]
+  );
+
+  const handleDemoSpeak = useCallback(
+    (text: string) => playback.speakWithBrowserTts(text, selectedVoice),
+    [playback, selectedVoice]
+  );
+
   const session = useClearVoiceSession({
     wsUrl: WS_URL,
     useDemoMode: demoModeOverride || !WS_URL,
-    onAudioOutputChunk: (b64, isFinal) => playback.playPcmChunk(b64, isFinal),
-    onDemoSpeak: (text) => playback.speakWithBrowserTts(text, selectedVoice),
+    onAudioOutputChunk: handleAudioOutputChunk,
+    onDemoSpeak: handleDemoSpeak,
   });
 
   const mic = useMicCapture({ onAudioChunk: session.sendAudioChunk });
@@ -58,6 +68,7 @@ export default function Home() {
       mic.stop();
       playback.cancel();
     } else {
+      playback.playPcmChunk("", false); // Unlock AudioContext on user gesture
       session.startSession();
       await mic.start(selectedDeviceId || undefined);
     }

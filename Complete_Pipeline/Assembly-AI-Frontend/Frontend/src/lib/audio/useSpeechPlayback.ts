@@ -31,6 +31,9 @@ export function useSpeechPlayback() {
       contextRef.current = new Ctor();
       nextStartRef.current = 0;
     }
+    if (contextRef.current.state === "suspended") {
+      contextRef.current.resume().catch(() => {});
+    }
     return contextRef.current;
   }, []);
 
@@ -41,6 +44,9 @@ export function useSpeechPlayback() {
         return;
       }
       const context = ensureContext();
+      if (context.state === "suspended") {
+        context.resume().catch(() => {});
+      }
       const samples = base64ToInt16(base64);
       const float32 = new Float32Array(samples.length);
       for (let i = 0; i < samples.length; i++) float32[i] = samples[i] / 0x8000;

@@ -116,7 +116,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 "end_ms": 0,
             })
             emit_sync({"type": "stage.update", "stage": "repairing"})
-            person3.submit(event)
+            fut = person3.submit(event)
+            if fut:
+                fut.add_done_callback(lambda f: emit_sync({"type": "stage.update", "stage": "listening"}))
         else:
             emit_sync({
                 "type": "transcript.partial",
@@ -135,42 +137,45 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            msg = json.loads(data)
-            
-            if msg["type"] == "session.start":
-                aai_service.start_session(session_id=msg["session_id"])
-                endpointer.reset()
-                audio_buffer.clear()
-                emit_sync({"type": "stage.update", "stage": "listening"})
+            try:
+                msg = json.loads(data)
                 
-            elif msg["type"] == "audio.chunk":
-                payload = base64.b64decode(msg["payload_b64"])
-                chunk = {
-                    'session_id': msg['session_id'],
-                    'sequence': msg['sequence'],
-                    'payload': payload,
-                    'timestamp_ms': msg['timestamp_ms']
-                }
-                
-                vad_event, endpoint_decision = endpointer.process_chunk(chunk)
-                
-                audio_buffer.extend(payload)
-                if len(audio_buffer) >= 3200:
-                    aai_service.send_audio(bytes(audio_buffer))
+                if msg["type"] == "session.start":
+                    aai_service.start_session(session_id=msg["session_id"])
+                    endpointer.reset()
                     audio_buffer.clear()
+                    emit_sync({"type": "stage.update", "stage": "listening"})
                     
-                if endpoint_decision and endpoint_decision['finalized']:
+                elif msg["type"] == "audio.chunk":
+                    payload = base64.b64decode(msg["payload_b64"])
+                    chunk = {
+                        'session_id': msg['session_id'],
+                        'sequence': msg['sequence'],
+                        'payload': payload,
+                        'timestamp_ms': msg['timestamp_ms']
+                    }
+                    
+                    vad_event, endpoint_decision = endpointer.process_chunk(chunk)
+                    
+                    audio_buffer.extend(payload)
+                    if len(audio_buffer) >= 3200:
+                        aai_service.send_audio(bytes(audio_buffer))
+                        audio_buffer.clear()
+                        
+                    if endpoint_decision and endpoint_decision['finalized']:
+                        aai_service.force_endpoint()
+                        
+                elif msg["type"] == "session.stop":
+                    if len(audio_buffer) > 0:
+                        if len(audio_buffer) < 1600:
+                            audio_buffer.extend(b'\x00' * (1600 - len(audio_buffer)))
+                        aai_service.send_audio(bytes(audio_buffer))
+                        audio_buffer.clear()
                     aai_service.force_endpoint()
-                    
-            elif msg["type"] == "session.stop":
-                if len(audio_buffer) > 0:
-                    if len(audio_buffer) < 1600:
-                        audio_buffer.extend(b'\x00' * (1600 - len(audio_buffer)))
-                    aai_service.send_audio(bytes(audio_buffer))
-                    audio_buffer.clear()
-                aai_service.force_endpoint()
-                aai_service.flush_final()
-                emit_sync({"type": "stage.update", "stage": "idle"})
+                    aai_service.flush_final()
+                    emit_sync({"type": "stage.update", "stage": "idle"})
+            except Exception as e:
+                print(f"[WS ERROR] Error processing message: {e}")
                 
     except WebSocketDisconnect:
         pass
