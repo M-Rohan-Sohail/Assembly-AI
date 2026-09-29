@@ -12,9 +12,6 @@ interface SettingsPanelProps {
   voices: SpeechSynthesisVoice[];
   selectedVoiceUri: string;
   onSelectVoice: (uri: string) => void;
-  demoMode: boolean;
-  onToggleDemoMode: (value: boolean) => void;
-  wsUrlConfigured: boolean;
   sessionActive: boolean;
 }
 
@@ -27,9 +24,6 @@ export function SettingsPanel({
   voices,
   selectedVoiceUri,
   onSelectVoice,
-  demoMode,
-  onToggleDemoMode,
-  wsUrlConfigured,
   sessionActive,
 }: SettingsPanelProps) {
   return (
@@ -53,7 +47,7 @@ export function SettingsPanel({
 
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            Playback voice (demo mode)
+            System Voice (TTS fallback / replay)
           </label>
           <select
             value={selectedVoiceUri}
@@ -67,25 +61,11 @@ export function SettingsPanel({
               </option>
             ))}
           </select>
+          <p className="mt-1 text-xs text-subtle-foreground">
+            Primary audio streams directly from ElevenLabs. This voice is used as an immediate fallback or for replay.
+          </p>
         </div>
 
-        <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-background px-3 py-3">
-          <div>
-            <p className="text-sm font-medium text-foreground">Demo mode</p>
-            <p className="text-xs text-subtle-foreground">
-              {wsUrlConfigured
-                ? "Simulate the pipeline locally instead of using the configured backend."
-                : "No NEXT_PUBLIC_WS_URL configured — demo mode is the only option."}
-            </p>
-          </div>
-          <input
-            type="checkbox"
-            checked={demoMode || !wsUrlConfigured}
-            disabled={!wsUrlConfigured || sessionActive}
-            onChange={(e) => onToggleDemoMode(e.target.checked)}
-            className="mt-1 h-4 w-4 accent-[var(--accent)]"
-          />
-        </div>
         {sessionActive && (
           <p className="text-xs text-subtle-foreground">Stop the session to change these settings.</p>
         )}

@@ -23,7 +23,7 @@
       "block_size_bytes": 4096,
       "voice": "",
       "rate": 0,
-      "volume": 0.0
+      "volume": 1.0
     }
   },
   "event_types": {

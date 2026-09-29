@@ -21,7 +21,6 @@ export default function Home() {
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [selectedVoiceUri, setSelectedVoiceUri] = useState("");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [demoModeOverride, setDemoModeOverride] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -46,16 +45,15 @@ export default function Home() {
     [playback]
   );
 
-  const handleDemoSpeak = useCallback(
+  const handleFallbackSpeak = useCallback(
     (text: string) => playback.speakWithBrowserTts(text, selectedVoice),
     [playback, selectedVoice]
   );
 
   const session = useClearVoiceSession({
     wsUrl: WS_URL,
-    useDemoMode: demoModeOverride || !WS_URL,
     onAudioOutputChunk: handleAudioOutputChunk,
-    onDemoSpeak: handleDemoSpeak,
+    onFallbackSpeak: handleFallbackSpeak,
   });
 
   const mic = useMicCapture({ onAudioChunk: session.sendAudioChunk });
@@ -68,7 +66,7 @@ export default function Home() {
       mic.stop();
       playback.cancel();
     } else {
-      playback.playPcmChunk("", false); // Unlock AudioContext on user gesture
+      playback.unlockAudio(); // Unlock AudioContext on user gesture
       session.startSession();
       await mic.start(selectedDeviceId || undefined);
     }
@@ -182,9 +180,6 @@ export default function Home() {
         voices={voices}
         selectedVoiceUri={selectedVoiceUri}
         onSelectVoice={setSelectedVoiceUri}
-        demoMode={demoModeOverride}
-        onToggleDemoMode={setDemoModeOverride}
-        wsUrlConfigured={Boolean(WS_URL)}
         sessionActive={sessionActive}
       />
     </div>

@@ -1,6 +1,6 @@
 import type { PipelineStage, ValidationReason } from "./types";
 
-export type ConnectionStatus = "offline" | "connecting" | "online" | "demo";
+export type ConnectionStatus = "offline" | "connecting" | "online";
 
 export interface UtteranceRecord {
   utteranceId: string;

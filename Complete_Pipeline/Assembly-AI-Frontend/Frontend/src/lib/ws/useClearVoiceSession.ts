@@ -2,7 +2,6 @@
 
 import { useCallback, useReducer, useRef, useEffect } from "react";
 import { makeSessionId } from "@/lib/utils";
-import { DEMO_SCRIPTS, nextDemoScript, partialSteps } from "./demo-simulation";
 import type { AudioChunkPayload } from "@/lib/audio/useMicCapture";
 import {
   emptyUtterance,
@@ -104,16 +103,14 @@ function reducer(state: SessionState, action: Action): SessionState {
 
 export interface UseClearVoiceSessionOptions {
   wsUrl?: string;
-  useDemoMode: boolean;
   onAudioOutputChunk?: (audioChunkB64: string, isFinal: boolean) => void;
-  onDemoSpeak?: (text: string) => Promise<void>;
+  onFallbackSpeak?: (text: string) => Promise<void>;
 }
 
 export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
-  const { wsUrl, useDemoMode, onAudioOutputChunk, onDemoSpeak } = options;
+  const { wsUrl, onAudioOutputChunk, onFallbackSpeak } = options;
   const [state, dispatch] = useReducer(reducer, initialSessionState);
   const wsRef = useRef<WebSocket | null>(null);
-  const demoCancelRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
   const isMutedRef = useRef(false);
 
@@ -122,10 +119,14 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
     onAudioOutputChunkRef.current = onAudioOutputChunk;
   });
 
-  const onDemoSpeakRef = useRef(onDemoSpeak);
+  const onFallbackSpeakRef = useRef(onFallbackSpeak);
   useEffect(() => {
-    onDemoSpeakRef.current = onDemoSpeak;
+    onFallbackSpeakRef.current = onFallbackSpeak;
   });
+
+  const audioReceivedForCurrentUtteranceRef = useRef(false);
+  const fallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSpokenTextRef = useRef<string>("");
 
   const sendAudioChunk = useCallback((chunk: AudioChunkPayload) => {
     const ws = wsRef.current;
@@ -143,97 +144,11 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
     ws.send(JSON.stringify(message));
   }, []);
 
-  const runDemoLoop = useCallback(async () => {
-    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-    while (!demoCancelRef.current) {
-      if (isMutedRef.current) {
-        await sleep(300);
-        continue;
-      }
-      const script = nextDemoScript();
-      const utteranceId = `utt-${Date.now()}`;
-      dispatch({ kind: "stage", stage: "listening" });
-
-      for (const step of partialSteps(script.raw)) {
-        if (demoCancelRef.current) return;
-        await sleep(step.delayMs);
-        dispatch({
-          kind: "server-event",
-          event: {
-            type: "transcript.partial",
-            version: 1,
-            session_id: sessionIdRef.current ?? "",
-            utterance_id: utteranceId,
-            text: step.text,
-            is_final: false,
-            confidence: null,
-            start_ms: 0,
-            end_ms: 0,
-          },
-        });
-      }
-      if (demoCancelRef.current) return;
-      dispatch({
-        kind: "server-event",
-        event: {
-          type: "transcript.final",
-          version: 1,
-          session_id: sessionIdRef.current ?? "",
-          utterance_id: utteranceId,
-          text: script.raw,
-          is_final: true,
-          confidence: 0.92,
-          start_ms: 0,
-          end_ms: 0,
-        },
-      });
-
-      dispatch({ kind: "stage", stage: "repairing" });
-      await sleep(650);
-      if (demoCancelRef.current) return;
-      dispatch({
-        kind: "server-event",
-        event: {
-          type: "repair.completed",
-          version: 1,
-          session_id: sessionIdRef.current ?? "",
-          utterance_id: utteranceId,
-          original_text: script.raw,
-          repaired_text: script.repaired,
-          confidence: 0.87,
-          changes: script.changes,
-        },
-      });
-
-      dispatch({ kind: "stage", stage: "validating" });
-      await sleep(400);
-      if (demoCancelRef.current) return;
-      const spokenText = script.approved ? script.repaired : script.raw;
-      dispatch({
-        kind: "server-event",
-        event: {
-          type: "validation.result",
-          session_id: sessionIdRef.current ?? "",
-          utterance_id: utteranceId,
-          approved: script.approved,
-          reason: script.reason,
-          source: script.approved ? "repaired" : "original",
-          spoken_text: spokenText,
-        },
-      });
-
-      dispatch({ kind: "stage", stage: "speaking" });
-      if (onDemoSpeakRef.current) await onDemoSpeakRef.current(spokenText);
-      if (demoCancelRef.current) return;
-      dispatch({ kind: "stage", stage: "listening" });
-      await sleep(900);
-    }
-  }, []);
-
   // Persistent WebSocket connection on page load
   useEffect(() => {
-    if (useDemoMode || !wsUrl) {
-      dispatch({ kind: "connection", status: "demo" });
+    if (!wsUrl) {
+      dispatch({ kind: "connection", status: "offline" });
+      dispatch({ kind: "error", message: "NEXT_PUBLIC_WS_URL is not configured." });
       return;
     }
 
@@ -267,12 +182,51 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
           if (isUnmounted) return;
           try {
             const parsed: ServerEvent = JSON.parse(event.data);
-            if (
-              (parsed.type === "audio.chunk" || parsed.type === "audio.final") &&
-              onAudioOutputChunkRef.current
-            ) {
-              onAudioOutputChunkRef.current(parsed.audio_chunk_b64, parsed.is_final);
+
+            if (parsed.type === "transcript.final") {
+              audioReceivedForCurrentUtteranceRef.current = false;
             }
+
+            if (parsed.type === "validation.result") {
+              audioReceivedForCurrentUtteranceRef.current = false;
+              lastSpokenTextRef.current = parsed.spoken_text;
+              if (fallbackTimeoutRef.current) {
+                clearTimeout(fallbackTimeoutRef.current);
+              }
+              const textToSpeak = parsed.spoken_text;
+              // If backend ElevenLabs/System audio chunks don't arrive within 1200ms, fall back to browser system voice!
+              fallbackTimeoutRef.current = setTimeout(() => {
+                if (!audioReceivedForCurrentUtteranceRef.current && onFallbackSpeakRef.current && textToSpeak) {
+                  console.log("No backend audio chunks received within 1200ms; falling back to browser system voice:", textToSpeak);
+                  void onFallbackSpeakRef.current(textToSpeak);
+                }
+              }, 1200);
+            }
+
+            if (parsed.type === "audio.chunk" || parsed.type === "audio.final") {
+              if (parsed.audio_chunk_b64) {
+                audioReceivedForCurrentUtteranceRef.current = true;
+                if (fallbackTimeoutRef.current) {
+                  clearTimeout(fallbackTimeoutRef.current);
+                  fallbackTimeoutRef.current = null;
+                }
+              }
+              if (onAudioOutputChunkRef.current) {
+                onAudioOutputChunkRef.current(parsed.audio_chunk_b64, parsed.is_final);
+              }
+            }
+
+            if (parsed.type === "pipeline.error" && parsed.stage === "tts") {
+              if (fallbackTimeoutRef.current) {
+                clearTimeout(fallbackTimeoutRef.current);
+                fallbackTimeoutRef.current = null;
+              }
+              if (!audioReceivedForCurrentUtteranceRef.current && onFallbackSpeakRef.current && lastSpokenTextRef.current) {
+                console.warn("Backend TTS reported error; immediately falling back to browser system voice:", lastSpokenTextRef.current);
+                void onFallbackSpeakRef.current(lastSpokenTextRef.current);
+              }
+            }
+
             dispatch({ kind: "server-event", event: parsed });
           } catch {
             // ignore malformed frames
@@ -281,7 +235,6 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
 
         ws.onerror = () => {
           if (isUnmounted) return;
-          // onclose will fire and trigger reconnection
         };
 
         ws.onclose = () => {
@@ -305,24 +258,18 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
     return () => {
       isUnmounted = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (fallbackTimeoutRef.current) clearTimeout(fallbackTimeoutRef.current);
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [useDemoMode, wsUrl]);
+  }, [wsUrl]);
 
   const startSession = useCallback(() => {
     const sessionId = makeSessionId();
     sessionIdRef.current = sessionId;
     dispatch({ kind: "session-start", sessionId });
-
-    if (useDemoMode || !wsUrl) {
-      demoCancelRef.current = false;
-      dispatch({ kind: "connection", status: "demo" });
-      void runDemoLoop();
-      return;
-    }
 
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -334,10 +281,13 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
       };
       ws.send(JSON.stringify(message));
     }
-  }, [runDemoLoop, useDemoMode, wsUrl]);
+  }, []);
 
   const stopSession = useCallback(() => {
-    demoCancelRef.current = true;
+    if (fallbackTimeoutRef.current) {
+      clearTimeout(fallbackTimeoutRef.current);
+      fallbackTimeoutRef.current = null;
+    }
     const ws = wsRef.current;
     const sessionId = sessionIdRef.current;
     if (ws && ws.readyState === WebSocket.OPEN && sessionId) {
@@ -360,6 +310,10 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
   }, []);
 
   const cancelSpeech = useCallback(() => {
+    if (fallbackTimeoutRef.current) {
+      clearTimeout(fallbackTimeoutRef.current);
+      fallbackTimeoutRef.current = null;
+    }
     const ws = wsRef.current;
     const sessionId = sessionIdRef.current;
     if (ws && ws.readyState === WebSocket.OPEN && sessionId) {
@@ -382,6 +336,5 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
     cancelSpeech,
     clearHistory,
     sendAudioChunk,
-    demoScriptCount: DEMO_SCRIPTS.length,
   };
 }

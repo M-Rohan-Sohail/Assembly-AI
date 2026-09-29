@@ -9,6 +9,7 @@ Providers are chosen and configured ONLY in tts_config.json:
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator
@@ -17,6 +18,8 @@ from urllib import error, parse, request
 from src.common import ConfigError, build, expand_env
 
 from .base import CancelToken, TTSError, TTSProvider
+
+log = logging.getLogger(__name__)
 
 _PROVIDERS: dict[str, Callable[[dict], TTSProvider]] = {}
 
@@ -104,8 +107,18 @@ class HttpStreamingTTSProvider(TTSProvider):
             raise ConfigError("tts.providers.http.url is empty - set it in tts_config.json")
         self.cfg = cfg
         # secrets are read from the environment here, not stored in the JSON
-        self._headers = expand_env(cfg.headers)
-        self._variables = expand_env(cfg.variables)
+        try:
+            self._headers = expand_env(cfg.headers)
+        except ConfigError as exc:
+            log.warning("HTTP TTS headers could not expand environment variables: %s", exc)
+            self._headers = {"Content-Type": "application/json"}
+        try:
+            self._variables = expand_env(cfg.variables)
+        except ConfigError as exc:
+            log.warning("HTTP TTS variables could not expand environment variables: %s", exc)
+            self._variables = {}
+        if not self._variables.get("voice_id"):
+            self._variables["voice_id"] = "21m00Tcm4TlvDq8ikWAM"
 
     @classmethod
     def from_dict(cls, data: dict) -> "HttpStreamingTTSProvider":
@@ -121,6 +134,8 @@ class HttpStreamingTTSProvider(TTSProvider):
         return request.Request(url, data=data, headers=self._headers, method=cfg.method)
 
     def synthesize_stream(self, text: str, cancel: CancelToken) -> Iterator[bytes]:
+        if "xi-api-key" not in self._headers or not self._headers["xi-api-key"] or "${" in self._headers["xi-api-key"]:
+            raise TTSError("ElevenLabs API key is not configured in environment (ELEVENLABS_API_KEY)")
         try:
             with request.urlopen(self._request(text), timeout=self.cfg.timeout_s) as resp:
                 while not cancel.is_set():

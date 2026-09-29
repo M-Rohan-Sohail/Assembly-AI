@@ -37,13 +37,24 @@ export function useSpeechPlayback() {
     return contextRef.current;
   }, []);
 
+  const unlockAudio = useCallback(() => {
+    try {
+      const context = ensureContext();
+      if (context.state === "suspended") {
+        context.resume().catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
+  }, [ensureContext]);
+
   const playPcmChunk = useCallback(
     (base64: string, isFinal: boolean) => {
+      const context = ensureContext();
       if (!base64) {
-        if (isFinal) setIsSpeaking(false);
+        if (isFinal && pendingSourcesRef.current.length === 0) setIsSpeaking(false);
         return;
       }
-      const context = ensureContext();
       if (context.state === "suspended") {
         context.resume().catch(() => {});
       }
@@ -113,5 +124,5 @@ export function useSpeechPlayback() {
     setIsSpeaking(false);
   }, []);
 
-  return { isSpeaking, playPcmChunk, speakWithBrowserTts, cancel };
+  return { isSpeaking, playPcmChunk, speakWithBrowserTts, unlockAudio, cancel };
 }

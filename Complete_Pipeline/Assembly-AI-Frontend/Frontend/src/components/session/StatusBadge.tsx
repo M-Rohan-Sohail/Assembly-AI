@@ -31,14 +31,12 @@ const CONNECTION_LABEL: Record<ConnectionStatus, string> = {
   offline: "Not connected",
   connecting: "Connecting…",
   online: "Backend connected",
-  demo: "Demo mode",
 };
 
 const CONNECTION_COLOR: Record<ConnectionStatus, string> = {
   offline: "text-subtle-foreground",
   connecting: "text-warning",
   online: "text-profit",
-  demo: "text-info",
 };
 
 export function ConnectionIndicator({ status }: { status: ConnectionStatus }) {

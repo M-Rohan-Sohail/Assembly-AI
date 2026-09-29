@@ -99,8 +99,19 @@ async def websocket_endpoint(websocket: WebSocket):
         })
         emit_sync({"type": "stage.update", "stage": "speaking"})
         
+    def on_error(stage, session_id, utterance_id, exc):
+        print(f"\n[ORCHESTRATOR {stage.upper()} ERROR] {exc}")
+        emit_sync({
+            "type": "pipeline.error",
+            "session_id": session_id,
+            "utterance_id": utterance_id,
+            "stage": stage,
+            "message": str(exc),
+        })
+
     person3.orchestrator._on_repair = on_repair
     person3.orchestrator._on_validation = on_validation
+    person3.orchestrator._on_error = on_error
 
     def handle_transcript(event):
         if event['is_final']:

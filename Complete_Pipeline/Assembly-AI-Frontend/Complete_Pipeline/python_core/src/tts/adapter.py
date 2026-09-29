@@ -12,6 +12,7 @@ from src.common import load_json_config
 
 from .base import CancelToken, TTSError, TTSProvider
 from .providers import create_provider
+from . import system_tts
 
 try:
     from src.contracts import AudioOutputEvent
@@ -62,6 +63,12 @@ class TTSAdapter:
         self._provider = provider or create_provider(
             self.config.provider, self.config.providers[self.config.provider]
         )
+        self._fallback_provider: Optional[TTSProvider] = None
+        if self.config.provider != "system" and "system" in self.config.providers:
+            try:
+                self._fallback_provider = create_provider("system", self.config.providers["system"])
+            except Exception as e:
+                log.warning("Could not initialize fallback system TTS: %s", e)
 
     @property
     def audio_format(self) -> dict:
@@ -124,4 +131,28 @@ class TTSAdapter:
                     log.warning("TTS failed (%s); retry %d/%d", exc, attempt, cfg.max_retries)
                     time.sleep(cfg.retry_backoff_s * attempt)
                     continue
+                # If primary provider failed and fallback provider exists, fall back to system TTS
+                if self._fallback_provider and sequence == 0:
+                    log.warning(
+                        "Primary TTS provider (%s) failed (%s); falling back to system TTS",
+                        self.config.provider,
+                        exc,
+                    )
+                    try:
+                        fb_buffer = bytearray()
+                        for block in self._fallback_provider.synthesize_stream(text, cancel):
+                            if cancel.is_set():
+                                return SynthesisResult(self.CANCELLED, sequence)
+                            fb_buffer.extend(block)
+                            while len(fb_buffer) >= cfg.chunk_size_bytes:
+                                send(bytes(fb_buffer[: cfg.chunk_size_bytes]), final=False)
+                                del fb_buffer[: cfg.chunk_size_bytes]
+                        if cancel.is_set():
+                            return SynthesisResult(self.CANCELLED, sequence)
+                        if fb_buffer:
+                            send(bytes(fb_buffer), final=False)
+                        send(b"", final=True)
+                        return SynthesisResult(self.COMPLETED, sequence)
+                    except Exception as fallback_exc:
+                        log.error("Fallback system TTS also failed: %s", fallback_exc)
                 raise
