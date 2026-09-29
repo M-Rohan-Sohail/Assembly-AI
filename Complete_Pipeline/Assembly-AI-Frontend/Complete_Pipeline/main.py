@@ -42,9 +42,9 @@ def main():
     # 3. Start Python API (Person 1 & 3)
     print("[3/3] Starting Python FastAPI WebSocket Server on port 8000...")
     
-    # Add python_core to PYTHONPATH so it resolves imports correctly
+    # Add python_core and src to PYTHONPATH so it resolves imports correctly
     env = os.environ.copy()
-    env["PYTHONPATH"] = python_dir
+    env["PYTHONPATH"] = f"{python_dir}:{os.path.join(python_dir, 'src')}"
     
     # Use the same python executable to run uvicorn
     python_process = subprocess.Popen(
