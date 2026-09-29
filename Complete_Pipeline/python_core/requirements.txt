@@ -1,9 +1,0 @@
-# ClearVoice - install everything with:  pip install -r requirements.txt
-assemblyai
-python-dotenv
-pyaudio
-packaging      # imported by Silero VAD
-torch          # Silero VAD (voice activity detection) runs on it - big download
-torchaudio     # required for audio processing with PyTorchSSS
-onnxruntime    # required for ONNX model inference
-pyttsx3

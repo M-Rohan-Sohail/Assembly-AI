@@ -1,8 +1,0 @@
-Partial:
-My name is Jack.
-
-Clean:
-My name is Jack.
-
-----------------------------------------
-
