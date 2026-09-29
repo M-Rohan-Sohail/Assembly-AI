@@ -22,7 +22,7 @@ COPY . /app/
 RUN cd ts_intelligence && npm install
 
 # Install Python dependencies for Person 1 & 3
-RUN pip install --no-cache-dir -r python_core/requirements.txt
+RUN pip install --no-cache-dir -r python_core/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Expose the FastAPI WebSocket port (the Node server runs internally on 8787)
 EXPOSE 8000
