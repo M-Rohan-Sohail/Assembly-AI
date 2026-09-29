@@ -65,9 +65,10 @@ async def websocket_endpoint(websocket: WebSocket):
     
     # Custom sink to stream audio back
     def ws_sink(audio_event):
+        chunk_bytes = audio_event.get("audio_chunk") or audio_event.get("payload") or b""
         msg = {
             "type": "audio.chunk",
-            "audio_chunk_b64": base64.b64encode(audio_event["payload"]).decode("utf-8"),
+            "audio_chunk_b64": base64.b64encode(chunk_bytes).decode("utf-8"),
             "is_final": audio_event.get("is_final", False)
         }
         emit_sync(msg)
@@ -92,7 +93,7 @@ async def websocket_endpoint(websocket: WebSocket):
             "session_id": sid,
             "utterance_id": uid,
             "approved": approved,
-            "reason": "",
+            "reason": "approved" if approved else "semantic_risk",
             "source": source,
             "spoken_text": spoken_text
         })
@@ -169,7 +170,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     audio_buffer.clear()
                 aai_service.force_endpoint()
                 aai_service.flush_final()
-                break
+                emit_sync({"type": "stage.update", "stage": "idle"})
                 
     except WebSocketDisconnect:
         pass

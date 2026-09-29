@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useReducer, useRef } from "react";
+import { useCallback, useReducer, useRef, useEffect } from "react";
 import { makeSessionId } from "@/lib/utils";
 import { DEMO_SCRIPTS, nextDemoScript, partialSteps } from "./demo-simulation";
 import type { AudioChunkPayload } from "@/lib/audio/useMicCapture";
@@ -36,7 +36,7 @@ function reducer(state: SessionState, action: Action): SessionState {
     case "session-start":
       return { ...initialSessionState, connection: state.connection, sessionId: action.sessionId, stage: "listening" };
     case "session-stop":
-      return { ...state, stage: "idle", sessionId: null, current: null };
+      return { ...state, stage: "idle", sessionId: null };
     case "mute":
       return { ...state, isMuted: action.muted };
     case "clear-history":
@@ -210,32 +210,19 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
     }
   }, [onDemoSpeak]);
 
-  const startSession = useCallback(() => {
-    const sessionId = makeSessionId();
-    sessionIdRef.current = sessionId;
-    dispatch({ kind: "session-start", sessionId });
-
-    if (useDemoMode || !wsUrl) {
-      demoCancelRef.current = false;
-      dispatch({ kind: "connection", status: "demo" });
-      void runDemoLoop();
-      return;
-    }
+  // Connect WebSocket on page load
+  const connectWs = useCallback(() => {
+    if (!wsUrl || useDemoMode || wsRef.current) return;
 
     dispatch({ kind: "connection", status: "connecting" });
     try {
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
+
       ws.onopen = () => {
         dispatch({ kind: "connection", status: "online" });
-        const message: ClientMessage = {
-          type: "session.start",
-          session_id: sessionId,
-          sample_rate: 16000,
-          channels: 1,
-        };
-        ws.send(JSON.stringify(message));
       };
+
       ws.onmessage = (event) => {
         try {
           const parsed: ServerEvent = JSON.parse(event.data);
@@ -250,17 +237,57 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
           // ignore malformed frames
         }
       };
+
       ws.onerror = () => {
         dispatch({ kind: "error", message: "WebSocket connection error." });
       };
+
       ws.onclose = () => {
         dispatch({ kind: "connection", status: "offline" });
+        wsRef.current = null;
+        // Auto-reconnect after 3 seconds if disconnected
+        setTimeout(() => connectWs(), 3000);
       };
     } catch (err) {
       dispatch({ kind: "error", message: err instanceof Error ? err.message : "Failed to connect." });
       dispatch({ kind: "connection", status: "offline" });
     }
-  }, [onAudioOutputChunk, runDemoLoop, useDemoMode, wsUrl]);
+  }, [onAudioOutputChunk, useDemoMode, wsUrl]);
+
+  // Run on mount
+  useEffect(() => {
+    connectWs();
+    return () => {
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
+  }, [connectWs]);
+
+  const startSession = useCallback(() => {
+    const sessionId = makeSessionId();
+    sessionIdRef.current = sessionId;
+    dispatch({ kind: "session-start", sessionId });
+
+    if (useDemoMode || !wsUrl) {
+      demoCancelRef.current = false;
+      dispatch({ kind: "connection", status: "demo" });
+      void runDemoLoop();
+      return;
+    }
+
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const message: ClientMessage = {
+        type: "session.start",
+        session_id: sessionId,
+        sample_rate: 16000,
+        channels: 1,
+      };
+      ws.send(JSON.stringify(message));
+    } else {
+      connectWs();
+    }
+  }, [connectWs, runDemoLoop, useDemoMode, wsUrl]);
 
   const stopSession = useCallback(() => {
     demoCancelRef.current = true;
@@ -270,10 +297,7 @@ export function useClearVoiceSession(options: UseClearVoiceSessionOptions) {
       const message: ClientMessage = { type: "session.stop", session_id: sessionId };
       ws.send(JSON.stringify(message));
     }
-    ws?.close();
-    wsRef.current = null;
     sessionIdRef.current = null;
-    dispatch({ kind: "connection", status: "offline" });
     dispatch({ kind: "session-stop" });
   }, []);
 
